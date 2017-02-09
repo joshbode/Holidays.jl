@@ -1,8 +1,11 @@
+"""
+Public holiday database
+"""
 module Holidays
 
 __precompile__()
 
-export Holiday, HolidayStore, upcoming, recent, load!, data
+export Holiday, HolidayStore, upcoming, recent, nearest, load!, data
 
 using Base: Dates, Order
 
@@ -31,16 +34,22 @@ Base.getindex(store::HolidayStore, x::Tuple{String, Date}) = get(store.holidays[
 Base.getindex(store::HolidayStore, x::Tuple{String, DateTime}) = getindex(store, (first(x), Date(last(x))))
 Base.getindex(store::HolidayStore, x::Date) = Set{Holiday}(v for region in keys(store.holidays) for v in store[(region, x)])
 
-"""Gets upcoming holidays for region."""
+"""Gets next upcoming holiday date for region."""
 function upcoming(store::HolidayStore, region::String, date::Date)
     holidays = store[region]
     try deref_key((holidays, searchsortedfirst(holidays, date))) catch lastdayofyear(today()) + Day(1) end
 end
 
-"""Gets recent holidays for region."""
+"""Gets most recent holiday date for region."""
 function recent(store::HolidayStore, region::String, date::Date)
     holidays = store[region]
     try deref_key((holidays, searchsortedlast(holidays, date))) catch firstdayofyear(today()) end
+end
+
+"""Gets nearest holiday date for region. Returns upcoming holiday date if tied."""
+function nearest(store::HolidayStore, region::String, date::Date)
+    x, y = recent(store, region, date), upcoming(store, region, date)
+    (y - date) <= (date - x) ? y : x
 end
 
 """Loads holidays from a source into the store."""
@@ -72,6 +81,7 @@ type DataGovAustralia <: Source
     DataGovAustralia(id::AbstractString="australian-holidays-machine-readable-dataset") = new(id, _api_root)
 end
 
+"""Queries data source for holidays"""
 function data(source::DataGovAustralia)
     # get the package to find all resources (years)
     response = try

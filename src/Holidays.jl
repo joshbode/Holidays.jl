@@ -1,9 +1,9 @@
+__precompile__(true)
+
 """
 Public holiday database
 """
 module Holidays
-
-__precompile__()
 
 export Holiday, HolidayStore, upcoming, recent, nearest, load!, data
 

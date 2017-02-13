@@ -5,12 +5,12 @@ Public holiday database
 """
 module Holidays
 
-export Holiday, HolidayStore, upcoming, recent, nearest, load!, data
+export Holiday, upcoming, recent, nearest
 
 using Base: Dates, Order
 
+using Compat
 using DataStructures
-import Requests
 
 abstract Source
 
@@ -18,10 +18,13 @@ abstract Source
 type Holiday
     name::String
     description::String
-    source::Source
     regions::Set{String}
     date::Date
 end
+Holiday(
+    name::AbstractString, description::AbstractString,
+    regions::AbstractString, date::AbstractString
+) = Holiday(name, description, Set{String}(split(regions, '|')), Date(date))
 
 """Store for holidays"""
 type HolidayStore
@@ -53,8 +56,8 @@ function nearest(store::HolidayStore, region::String, date::Date)
 end
 
 """Loads holidays from a source into the store."""
-function load!(store::HolidayStore, source::Source)
-    for holiday in data(source)
+function load!(store::HolidayStore, holidays::Vector{Holiday})
+    for holiday in holidays
         for region in holiday.regions
             if !haskey(store.holidays, region)
                 target = store.holidays[region] = valtype(store.holidays)()
@@ -71,72 +74,23 @@ function load!(store::HolidayStore, source::Source)
     store
 end
 
-# sources
+global const _store = HolidayStore()
 
-"""Data source for data.gov.au"""
-type DataGovAustralia <: Source
-    id::String
-    api_root::String
-    const _api_root::AbstractString="https://data.gov.au/api/3/action"
-    DataGovAustralia(id::AbstractString="australian-holidays-machine-readable-dataset") = new(id, _api_root)
-end
-
-"""Queries data source for holidays"""
-function data(source::DataGovAustralia)
-    # get the package to find all resources (years)
-    response = try
-        Requests.get(joinpath(source.api_root, "package_show"); query=Dict(:id => source.id))
-    catch e
-        error("Unable to retrieve package $(source.id): $e")
-    end
-    response = Requests.json(response; dicttype=Dict{Symbol, Any})
-    if !response[:success]
-        error("Unable to retrieve package $(source.id): ", response[:error][:message])
-    end
-    all_regions = Set{String}(["AU-$x" for x in ["ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA"]])  # ISO 3166-2:AU
-    # process all resources in the package, newest resources first
-    holidays = Holiday[]
-    for resource in unique((x) -> x[:hash], sort(response[:result][:resources]; by=(x) -> x[:created], rev=true))
-        response = try
-            Requests.get(joinpath(source.api_root, "datastore_search"); query=Dict(:resource_id => resource[:id]))
-        catch e
-            error("Unable to retrieve resource $(resource[:id]): $e")
-        end
-        response = Requests.json(response; dicttype=Dict{Symbol, Any})
-        if !response[:success]
-            error("Unable to retrieve resource $(resource[:id]): ", response[:error][:message])
-        end
-        for record in response[:result][:records]
-            # remove spaces in key names
-            record = Dict{Symbol, Any}(Symbol(replace(string(k), " ", "")) => v for (k, v) in record)
-            if record[:Date] == "TBC"
-                continue
-            end
-            if record[:ApplicableTo] == "NAT"
-                regions = copy(all_regions)
-            else
-                regions = intersect(Set{String}(["AU-$x" for x in split(record[:ApplicableTo], "|")]), all_regions)
-            end
-            date = Date(record[:Date], "yyyymmdd")
-            push!(holidays, Holiday(record[:HolidayName], record[:Information], source, regions, date))
-        end
-    end
-    # pick newest version for region/date/name
-    unique((x) -> (x.regions, x.date, replace(lowercase(x.name), " ", "")), holidays)
-end
-
-const _store = HolidayStore()
-
-function setup()
-    for source in [DataGovAustralia()]
-        load!(_store, source)
+"""Load the prepared holiday database"""
+function __init__()
+    DB_DIR = joinpath(@__DIR__, "..", "deps", "db")
+    for source in readdir(DB_DIR)
+        files = [joinpath(DB_DIR, source, x) for x in readdir(joinpath(DB_DIR, source))]
+        holidays = [Holiday(split(strip(line), '\t')...) for file in files for line in readlines(file)]
+        # pick newest version for region/date/name
+        holidays = unique((x) -> (x.regions, x.date, replace(lowercase(x.name), " ", "")), holidays)
+        load!(_store, holidays)
     end
 end
-
-setup()
 
 # bound to internal store
 upcoming(region::String, date::Date) = upcoming(_store, region, date)
 recent(region::String, date::Date) = recent(_store, region, date)
+nearest(region::String, date::Date) = nearest(_store, region, date)
 
 end

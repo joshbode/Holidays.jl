@@ -87,11 +87,11 @@ function data(source::DataGovAustralia)
     response = try
         Requests.get(joinpath(source.api_root, "package_show"); query=Dict(:id => source.id))
     catch e
-        error("Unable to retrieve package $id: $e")
+        error("Unable to retrieve package $(source.id): $e")
     end
     response = Requests.json(response; dicttype=Dict{Symbol, Any})
     if !response[:success]
-        error("Unable to retrieve package $id: ", response[:error][:message])
+        error("Unable to retrieve package $(source.id): ", response[:error][:message])
     end
     all_regions = Set{String}(["AU-$x" for x in ["ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA"]])  # ISO 3166-2:AU
     # process all resources in the package, newest resources first

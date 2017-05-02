@@ -38,21 +38,24 @@ Base.getindex(store::HolidayStore, x::Tuple{String, DateTime}) = getindex(store,
 Base.getindex(store::HolidayStore, x::Date) = Set{Holiday}(v for region in keys(store.holidays) for v in store[(region, x)])
 
 """Gets next upcoming holiday date for region."""
-function upcoming(store::HolidayStore, region::String, date::Date)
+function upcoming(store::HolidayStore, region::String, date::Date; value::Bool=false)
     holidays = store[region]
     try deref_key((holidays, searchsortedfirst(holidays, date))) catch lastdayofyear(today()) + Day(1) end
+    value ? holidays[date] : date
 end
 
 """Gets most recent holiday date for region."""
-function recent(store::HolidayStore, region::String, date::Date)
+function recent(store::HolidayStore, region::String, date::Date; value::Bool=false)
     holidays = store[region]
-    try deref_key((holidays, searchsortedlast(holidays, date))) catch firstdayofyear(today()) end
+    date = try deref_key((holidays, searchsortedlast(holidays, date))) catch firstdayofyear(today()) end
+    value ? holidays[date] : date
 end
 
 """Gets nearest holiday date for region. Returns upcoming holiday date if tied."""
-function nearest(store::HolidayStore, region::String, date::Date)
+function nearest(store::HolidayStore, region::String, date::Date; value::Bool=false)
     x, y = recent(store, region, date), upcoming(store, region, date)
-    (y - date) <= (date - x) ? y : x
+    date = (y - date) <= (date - x) ? y : x
+    value ? store[region][date] : date
 end
 
 """Loads holidays from a source into the store."""
@@ -88,9 +91,9 @@ function __init__()
     end
 end
 
-# bound to internal store
-upcoming(region::String, date::Date) = upcoming(_store, region, date)
-recent(region::String, date::Date) = recent(_store, region, date)
-nearest(region::String, date::Date) = nearest(_store, region, date)
+# bind to internal store
+upcoming(region::String, date::Date; value::Bool=false) = upcoming(_store, region, date; value=value)
+recent(region::String, date::Date; value::Bool=false) = recent(_store, region, date; value=value)
+nearest(region::String, date::Date; value::Bool=false) = nearest(_store, region, date; value=value)
 
 end

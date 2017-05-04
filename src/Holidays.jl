@@ -12,7 +12,7 @@ using Base: Dates, Order
 using Compat
 using DataStructures
 
-abstract Source
+@compat abstract type Source end
 
 """Holiday type"""
 type Holiday

@@ -28,8 +28,8 @@ Holiday(
 
 """Store for holidays"""
 type HolidayStore
-    holidays::Dict{String, SortedDict{Date, Set{Holiday}, ForwardOrdering}}
-    HolidayStore() = new(Dict{String, SortedDict{Date, Set{Holiday}, ForwardOrdering}}())
+    holidays::Dict{String, SortedDict{Date, Set{Holiday}}}
+    HolidayStore() = new(Dict{String, SortedDict{Date, Set{Holiday}}}())
 end
 
 Base.getindex(store::HolidayStore, region::String) = haskey(store.holidays, region) ? store.holidays[region] : error("Unknown region: $region")

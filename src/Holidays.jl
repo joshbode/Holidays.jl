@@ -39,7 +39,7 @@ Base.getindex(store::HolidayStore, x::Date) = Set{Holiday}(v for region in keys(
 """Gets next upcoming holiday date for region."""
 function upcoming(store::HolidayStore, region::String, date::Date; value::Bool=false)
     holidays = store[region]
-    try deref_key((holidays, searchsortedfirst(holidays, date))) catch lastdayofyear(today()) + Day(1) end
+    date = try deref_key((holidays, searchsortedfirst(holidays, date))) catch lastdayofyear(today()) + Day(1) end
     value ? holidays[date] : date
 end
 

@@ -76,7 +76,7 @@ function load!(store::HolidayStore, holidays::Vector{Holiday})
     store
 end
 
-global const _store = HolidayStore()
+const _store = HolidayStore()
 
 """Load the prepared holiday database"""
 function __init__()
